@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Nook
+Comment=Google Chat, Gmail, Drive and Calendar in one workspace
+Exec=nook-omarchy
+Icon=nook-omarchy
+Terminal=false
+Categories=Network;
+StartupNotify=true
+StartupWMClass=io.github.paulkwongemini.Nook
+

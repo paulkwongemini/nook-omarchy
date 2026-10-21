@@ -1,0 +1,37 @@
+# scripts/package.sh resolves the source checksum for the release/AUR recipe.
+pkgname=nook-omarchy
+pkgver=0.0.1
+pkgrel=1
+pkgdesc='A native Google workspace shell for Omarchy'
+arch=('x86_64')
+url='https://github.com/paulkwongemini/nook-omarchy'
+license=('MIT' 'Apache-2.0' 'MPL-2.0' 'Unicode-3.0')
+depends=('gtk3' 'webkit2gtk-4.1>=2.40' 'gst-plugins-base' 'gst-plugins-good' 'librsvg' 'xdg-utils')
+makedepends=('rust>=1.89' 'pkgconf' 'python')
+options=('!debug')
+source=("$url/releases/download/v$pkgver/$pkgname-$pkgver.tar.gz")
+sha256sums=('@SOURCE_SHA256@')
+
+prepare() {
+  cd "$pkgname-$pkgver"
+  cargo fetch --locked --target x86_64-unknown-linux-gnu
+}
+
+build() {
+  cd "$pkgname-$pkgver"
+  CARGO_TARGET_DIR="$srcdir/target" cargo build --release --frozen
+  python scripts/licenses.py "$srcdir/THIRD_PARTY_LICENSES.txt"
+}
+
+package() {
+  install -Dm755 "$srcdir/target/release/nook-omarchy" "$pkgdir/usr/bin/nook-omarchy"
+  cd "$pkgname-$pkgver"
+  install -Dm644 packaging/nook-omarchy.desktop \
+    "$pkgdir/usr/share/applications/io.github.paulkwongemini.Nook.desktop"
+  install -Dm644 assets/nook-omarchy.svg \
+    "$pkgdir/usr/share/icons/hicolor/scalable/apps/nook-omarchy.svg"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 "$srcdir/THIRD_PARTY_LICENSES.txt" \
+    "$pkgdir/usr/share/licenses/$pkgname/THIRD_PARTY_LICENSES.txt"
+  install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+}

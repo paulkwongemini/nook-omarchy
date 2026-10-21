@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>Nook — an open corner</title>
+  <defs>
+    <linearGradient id="surface" x1="0" y1="0" x2="0.8" y2="1">
+      <stop stop-color="#49384F"/>
+      <stop offset="1" stop-color="#2D2535"/>
+    </linearGradient>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="184" fill="url(#surface)"/>
+  <rect x="102" y="102" width="820" height="820" rx="182" fill="none" stroke="#FFFFFF" stroke-opacity="0.09" stroke-width="2"/>
+  <path d="M640 344H420Q352 344 352 412V648" fill="none" stroke="#F5EFE6" stroke-width="88" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M496 680H612Q680 680 680 612V496" fill="none" stroke="#C9B8D8" stroke-width="88" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

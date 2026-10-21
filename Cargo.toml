@@ -1,0 +1,25 @@
+[package]
+name = "nook-omarchy"
+version = "0.0.1"
+edition = "2021"
+rust-version = "1.89"
+description = "A native Google workspace shell for Omarchy"
+license = "MIT"
+repository = "https://github.com/paulkwongemini/nook-omarchy"
+publish = false
+
+[[bin]]
+name = "nook-omarchy"
+path = "src/main.rs"
+
+[dependencies]
+gtk = "0.18"
+webkit2gtk = { version = "=2.0.2", features = ["v2_40"] }
+wry = { version = "0.57", default-features = false, features = ["os-webview"] }
+url = "2.5"
+percent-encoding = "2.3"
+libc = "0.2"
+
+[profile.release]
+strip = true
+
