@@ -214,13 +214,17 @@ pub fn show_dialog(
         accessible.set_name("App theme");
     }
     content.add(&theme);
-    let note = gtk::Label::new(Some(
+    let note = |text| {
+        let label = gtk::Label::new(text);
+        label.set_line_wrap(true);
+        label.set_max_width_chars(48);
+        label.set_xalign(0.0);
+        content.add(&label);
+        label
+    };
+    note(Some(
         "Changes Nook's sidebar and dialogs. Websites have their own theme settings.",
     ));
-    note.set_line_wrap(true);
-    note.set_max_width_chars(48);
-    note.set_xalign(0.0);
-    content.add(&note);
     heading("Notifications");
     let toggle = |label: &str, value: bool| {
         let button = gtk::CheckButton::with_label(label);
@@ -236,19 +240,11 @@ pub fn show_dialog(
         "Keep notifications until clicked or dismissed",
         current.persistent,
     );
-    let note = gtk::Label::new(Some("Persistent alerts use high priority on Omarchy. Nook must stay open; websites can withdraw alerts. Sound depends on your desktop. Changes apply to new alerts. Enable notifications in Chat or Gmail too."));
-    note.set_line_wrap(true);
-    note.set_max_width_chars(48);
-    note.set_xalign(0.0);
-    content.add(&note);
+    note(Some("Persistent alerts use high priority on Omarchy. Nook must stay open; websites can withdraw alerts. Sound depends on your desktop. Changes apply to new alerts. Enable notifications in Chat or Gmail too."));
     let test_button = gtk::Button::with_label("Test saved notification settings");
     test_button.connect_clicked(move |_| test());
     content.add(&test_button);
-    let error = gtk::Label::new(None);
-    error.set_line_wrap(true);
-    error.set_max_width_chars(48);
-    error.set_xalign(0.0);
-    content.add(&error);
+    let error = note(None);
     dialog.connect_response(move |dialog, response| {
         if response == gtk::ResponseType::Accept {
             let value = Preferences {

@@ -1,7 +1,7 @@
 use crate::{
     notifications::Notifications,
-    settings::{self, Preferences},
     policy::{self, Route, SERVICES},
+    settings::{self, Preferences},
 };
 use gtk::{gdk, gio, glib, prelude::*};
 use std::{
@@ -70,7 +70,6 @@ pub struct Workspace {
     context: webkit2gtk::WebContext,
     anchor: webkit2gtk::WebView,
     notifications: Rc<Notifications>,
-    preferences: RefCell<Preferences>,
     closing: Cell<bool>,
 }
 
@@ -83,7 +82,10 @@ impl Workspace {
         let loaded = Preferences::load(&Preferences::path());
         let settings_failed = loaded.is_err();
         let preferences = loaded.unwrap_or_else(|_| Preferences {
-            chat: false, gmail: false, preview: false, ..Preferences::default()
+            chat: false,
+            gmail: false,
+            preview: false,
+            ..Preferences::default()
         });
         preferences.theme.apply();
         let manager = webkit2gtk::WebsiteDataManager::builder()
@@ -113,7 +115,9 @@ impl Workspace {
             .default_height(820)
             .build();
         window.connect_realize(|widget| {
-            let Some(window) = widget.window() else { return };
+            let Some(window) = widget.window() else {
+                return;
+            };
             if window.display().type_().name() != "GdkWaylandDisplay" {
                 return;
             }
@@ -203,7 +207,7 @@ impl Workspace {
                 context,
                 anchor,
                 notifications: Notifications::new(
-                    preferences.clone(),
+                    preferences,
                     move |service| {
                         if let Some(workspace) = activate.upgrade() {
                             workspace.select_service(service);
@@ -216,7 +220,6 @@ impl Workspace {
                         }
                     },
                 ),
-                preferences: RefCell::new(preferences),
                 closing: Cell::new(false),
             }
         });
@@ -277,14 +280,12 @@ impl Workspace {
         if service >= SERVICES.len() || self.closing.get() {
             return;
         }
-        let existing = self.pages.borrow()[service].clone();
-        match existing {
-            Some(page) => page,
-            None => match self.make_page(service, None) {
+        let existing = self.pages.borrow()[service].is_some();
+        if !existing {
+            match self.make_page(service, None) {
                 Ok(page) => {
                     self.pages.borrow_mut()[service] = Some(page.clone());
                     page.web.load_uri(SERVICES[service].url);
-                    page
                 }
                 Err(_) => {
                     self.failure(
@@ -293,8 +294,8 @@ impl Workspace {
                     );
                     return;
                 }
-            },
-        };
+            }
+        }
         self.selected.set(service);
         self.stack.set_visible_child_name(SERVICES[service].name);
         for (i, button) in self.buttons.iter().enumerate() {
@@ -534,8 +535,6 @@ impl Workspace {
                     workspace.close_popup(&page);
                 }
             });
-        }
-        if page.opener.is_some() {
             let weak = Rc::downgrade(self);
             let p = Rc::downgrade(page);
             page.web.connect_ready_to_show(move |_| {
@@ -767,17 +766,23 @@ impl Workspace {
             "Settings" => {
                 let save_workspace = Rc::downgrade(self);
                 let test_workspace = Rc::downgrade(self);
-                settings::show_dialog(&self.window, &self.preferences.borrow(), move |preferences| {
-                    preferences.save(&Preferences::path())?;
-                    preferences.theme.apply();
-                    if let Some(workspace) = save_workspace.upgrade() {
-                        workspace.notifications.set_preferences(preferences.clone());
-                        *workspace.preferences.borrow_mut() = preferences;
-                    }
-                    Ok(())
-                }, move || {
-                    if let Some(workspace) = test_workspace.upgrade() { workspace.notifications.send_test(); }
-                });
+                settings::show_dialog(
+                    &self.window,
+                    &self.notifications.preferences(),
+                    move |preferences| {
+                        preferences.save(&Preferences::path())?;
+                        preferences.theme.apply();
+                        if let Some(workspace) = save_workspace.upgrade() {
+                            workspace.notifications.set_preferences(preferences);
+                        }
+                        Ok(())
+                    },
+                    move || {
+                        if let Some(workspace) = test_workspace.upgrade() {
+                            workspace.notifications.send_test();
+                        }
+                    },
+                );
             }
             "Test App Notification" => self.notifications.send_test(),
             "Notification Help" => {
@@ -927,7 +932,7 @@ impl Workspace {
                 if let Ok(uri) = url::Url::from_file_path(path) {
                     download.set_allow_overwrite(true);
                     download.set_destination(uri.as_str());
-                    workspace.download_progress(download, service);
+                    workspace.download_progress(download);
                 } else {
                     download.cancel();
                 }
@@ -958,7 +963,7 @@ impl Workspace {
         });
     }
 
-    fn download_progress(&self, download: &webkit2gtk::Download, _service: usize) {
+    fn download_progress(&self, download: &webkit2gtk::Download) {
         let dialog = gtk::Dialog::with_buttons(
             Some("Downloading — Nook"),
             Some(&self.window),
@@ -1015,15 +1020,9 @@ impl Workspace {
 }
 
 fn update_icon(button: &gtk::ToggleButton, service: usize) {
-    let svg = match SERVICES[service].icon {
-        "chat" => include_str!("../assets/chat.svg"),
-        "gmail" => include_str!("../assets/gmail.svg"),
-        "drive" => include_str!("../assets/drive.svg"),
-        _ => include_str!("../assets/calendar.svg"),
-    };
     let color = button.style_context().color(gtk::StateFlags::NORMAL);
     if let Some(icon) = svg_icon(
-        svg,
+        SERVICES[service].icon,
         Some(&format!(
             "#{:02x}{:02x}{:02x}",
             (color.red() * 255.0) as u8,

@@ -16,22 +16,22 @@ pub const SERVICES: [Service; 4] = [
     Service {
         name: "Chat",
         url: "https://chat.google.com/",
-        icon: "chat",
+        icon: include_str!("../assets/chat.svg"),
     },
     Service {
         name: "Mail",
         url: "https://mail.google.com/mail/u/0/",
-        icon: "gmail",
+        icon: include_str!("../assets/gmail.svg"),
     },
     Service {
         name: "Drive",
         url: "https://drive.google.com/drive/u/0/",
-        icon: "drive",
+        icon: include_str!("../assets/drive.svg"),
     },
     Service {
         name: "Calendar",
         url: "https://calendar.google.com/calendar/u/0/r",
-        icon: "calendar",
+        icon: include_str!("../assets/calendar.svg"),
     },
 ];
 

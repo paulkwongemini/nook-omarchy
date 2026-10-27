@@ -14,6 +14,11 @@ use std::{
 
 const APP_ID: &str = "io.github.paulkwongemini.Nook";
 
+struct Session {
+    workspace: Rc<workspace::Workspace>,
+    _profile_lock: File,
+}
+
 fn private_directory(path: &Path) -> std::io::Result<()> {
     fs::create_dir_all(path)?;
     if fs::symlink_metadata(path)?.file_type().is_symlink() {
@@ -48,24 +53,23 @@ fn run() -> Result<i32, Box<dyn std::error::Error>> {
     glib::set_prgname(Some("nook-omarchy"));
     gtk::init()?;
     gtk::gdk::set_program_class(APP_ID);
-    let current: Rc<RefCell<Option<(Rc<workspace::Workspace>, File)>>> =
-        Rc::new(RefCell::new(None));
+    let current: Rc<RefCell<Option<Session>>> = Rc::new(RefCell::new(None));
     let current_activate = current.clone();
     let failed = Rc::new(Cell::new(false));
     let failure = failed.clone();
     app.connect_activate(move |app| {
-        if let Some((workspace, _)) = current_activate.borrow().as_ref() {
-            workspace.activate();
+        if let Some(session) = current_activate.borrow().as_ref() {
+            session.workspace.activate();
             return;
         }
-        let create = || -> Result<(Rc<workspace::Workspace>, File), Box<dyn std::error::Error>> {
+        let create = || -> Result<Session, Box<dyn std::error::Error>> {
             let lock = OpenOptions::new().read(true).write(true).create(true).truncate(false)
                 .mode(0o600).custom_flags(libc::O_NOFOLLOW).open(data.join("webkit-instance.lock"))?;
             lock.try_lock()?;
             let workspace = workspace::Workspace::new(app, &data.join("webkit"), &cache.join("webkit"))?;
             workspace.select_service(0);
             workspace.activate();
-            Ok((workspace, lock))
+            Ok(Session { workspace, _profile_lock: lock })
         };
         match create() {
             Ok(value) => *current_activate.borrow_mut() = Some(value),
@@ -81,8 +85,8 @@ fn run() -> Result<i32, Box<dyn std::error::Error>> {
         }
     });
     app.connect_shutdown(move |_| {
-        if let Some((workspace, _lock)) = current.borrow_mut().take() {
-            workspace.shutdown();
+        if let Some(session) = current.borrow_mut().take() {
+            session.workspace.shutdown();
         }
     });
     let status: i32 = app.run_with_args::<&str>(&[]).into();

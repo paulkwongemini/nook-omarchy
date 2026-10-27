@@ -258,24 +258,27 @@ impl Notifications {
                         return;
                     };
                     if member == "ActionInvoked" {
-                        if let Some((id, action)) = parameters.get::<(u32, String)>() {
-                            if action == "default" {
-                                if let Some(entry) = owner.find(id) {
-                                    (owner.activate)(entry.service);
-                                    if !entry.cancelled.get() {
-                                        if let Some(notification) = &entry.notification {
-                                            notification.clicked();
-                                        }
-                                    }
-                                    owner.finish(&entry, true);
-                                }
+                        let Some((id, action)) = parameters.get::<(u32, String)>() else {
+                            return;
+                        };
+                        if action != "default" {
+                            return;
+                        }
+                        let Some(entry) = owner.find(id) else { return };
+                        (owner.activate)(entry.service);
+                        if !entry.cancelled.get() {
+                            if let Some(notification) = &entry.notification {
+                                notification.clicked();
                             }
                         }
-                    } else if let Some((id, _)) = parameters.get::<(u32, u32)>() {
-                        if let Some(entry) = owner.find(id) {
-                            entry.desktop_id.set(0);
-                            owner.finish(&entry, true);
-                        }
+                        owner.finish(&entry, true);
+                    } else {
+                        let Some((id, _)) = parameters.get::<(u32, u32)>() else {
+                            return;
+                        };
+                        let Some(entry) = owner.find(id) else { return };
+                        entry.desktop_id.set(0);
+                        owner.finish(&entry, true);
                     }
                 },
             );
@@ -312,6 +315,10 @@ impl Notifications {
                 notification.close();
             }
         }
+    }
+
+    pub fn preferences(&self) -> Preferences {
+        self.preferences.borrow().clone()
     }
 
     pub fn set_preferences(&self, preferences: Preferences) {
