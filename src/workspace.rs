@@ -112,6 +112,20 @@ impl Workspace {
             .default_width(1200)
             .default_height(820)
             .build();
+        window.connect_realize(|widget| {
+            let Some(window) = widget.window() else { return };
+            if window.display().type_().name() != "GdkWaylandDisplay" {
+                return;
+            }
+            // GTK3 chooses SHM or GL at begin_paint. If WebKit first creates the
+            // paint GL context during that paint, NVIDIA EGL enables explicit
+            // sync but GTK still commits SHM without an acquire point. Prepare
+            // the window-owned paint context before the first frame instead.
+            // The returned, separate application context is not needed.
+            if let Err(error) = window.create_gl_context() {
+                eprintln!("Could not prepare Wayland GL rendering: {error}");
+            }
+        });
         window.set_size_request(420, 360);
         if let Some(icon) = svg_icon(include_str!("../assets/nook-omarchy.svg"), None, 64) {
             window.set_icon(Some(&icon));
