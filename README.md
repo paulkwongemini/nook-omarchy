@@ -51,9 +51,18 @@ Packages are built from the current local source. Output goes to `${XDG_CACHE_HO
 | Ctrl+R | Reload |
 | Alt+Left | Back |
 | Ctrl+Shift+H | Service home |
+| Ctrl+, | Settings |
 | Ctrl+Q | Quit |
 
 Closing the window exits Nook. There is no tray process or autostart entry.
+
+## Settings
+
+Open **Settings** from the bottom-left menu or press **Ctrl+,**. Choose System, Light or Dark for Nook's sidebar and dialogs; Google websites have their own theme settings. Explicit Light and Dark use GTK's built-in Adwaita theme and do not change your desktop.
+
+Chat and Gmail notifications can be enabled separately. Settings also control notification sound, sender/message previews and **Keep notifications until clicked or dismissed** (enabled by default). Persistent alerts use critical urgency and no expiration so Omarchy keeps them visible. Your desktop controls sound and may apply its own notification policy. Nook must remain running, and websites may withdraw their notifications. The test button uses saved settings and deliberately works even when service alerts are muted.
+
+Save applies changes without reloading your Google session. Preferences are stored in `~/.config/nook-omarchy/settings.ini`, respecting `XDG_CONFIG_HOME`. Turning off a service withdraws its existing alerts; hiding previews also withdraws visible alerts that could contain private text.
 
 ## Data and removal
 

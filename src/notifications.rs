@@ -1,9 +1,8 @@
-use crate::policy;
+use crate::{policy, settings::Preferences};
 use glib::prelude::*;
 use gtk::{gio, glib};
 use std::{
     cell::{Cell, RefCell},
-    collections::HashMap,
     rc::Rc,
 };
 use webkit2gtk::NotificationExt;
@@ -31,6 +30,7 @@ pub struct Notifications {
     entries: RefCell<Vec<Rc<Entry>>>,
     pending: Cell<usize>,
     stopped: Cell<bool>,
+    preferences: RefCell<Preferences>,
     failed: Cell<bool>,
     activate: Box<dyn Fn(usize)>,
     error: Box<dyn Fn(&str)>,
@@ -58,13 +58,18 @@ fn close_native(connection: &gio::DBusConnection, id: u32) {
 }
 
 impl Notifications {
-    pub fn new(activate: impl Fn(usize) + 'static, error: impl Fn(&str) + 'static) -> Rc<Self> {
+    pub fn new(
+        preferences: Preferences,
+        activate: impl Fn(usize) + 'static,
+        error: impl Fn(&str) + 'static,
+    ) -> Rc<Self> {
         let owner = Rc::new(Self {
             connection: RefCell::new(None),
             subscriptions: RefCell::new(Vec::new()),
             entries: RefCell::new(Vec::new()),
             pending: Cell::new(0),
             stopped: Cell::new(false),
+            preferences: RefCell::new(preferences),
             failed: Cell::new(false),
             activate: Box::new(activate),
             error: Box::new(error),
@@ -102,7 +107,10 @@ impl Notifications {
 
     pub fn present(self: &Rc<Self>, origin: &str, notification: &webkit2gtk::Notification) {
         let service = policy::notification_service(origin);
-        if self.stopped.get() || service.is_none() || self.pending.get() >= MAX_NOTIFICATIONS {
+        if self.stopped.get()
+            || !service.is_some_and(|service| self.preferences.borrow().allows(service))
+            || self.pending.get() >= MAX_NOTIFICATIONS
+        {
             notification.close();
             return;
         }
@@ -192,22 +200,11 @@ impl Notifications {
         let Some(connection) = self.connection.borrow().clone() else {
             return;
         };
-        let mut hints = HashMap::new();
-        hints.insert(
-            "desktop-entry",
-            "io.github.paulkwongemini.Nook".to_variant(),
+        let parameters = self.preferences.borrow().notification_parameters(
+            entry.service,
+            &entry.title,
+            &entry.body,
         );
-        let parameters = (
-            "Nook",
-            0u32,
-            "nook-omarchy",
-            entry.title.as_str(),
-            entry.body.as_str(),
-            vec!["default", "Open Nook"],
-            hints,
-            -1i32,
-        )
-            .to_variant();
         let weak = Rc::downgrade(self);
         let callback_connection = connection.clone();
         // Keep the connection and entry alive until the reply so cancellation or
@@ -270,6 +267,7 @@ impl Notifications {
                                             notification.clicked();
                                         }
                                     }
+                                    owner.finish(&entry, true);
                                 }
                             }
                         }
@@ -312,6 +310,20 @@ impl Notifications {
             }
             if notify_engine {
                 notification.close();
+            }
+        }
+    }
+
+    pub fn set_preferences(&self, preferences: Preferences) {
+        let previous = self.preferences.replace(preferences.clone());
+        // Withdraw previews already on screen when privacy is enabled, and any
+        // notifications from a service that has just been muted (including queued ones).
+        let entries = self.entries.borrow().clone();
+        for entry in entries {
+            if (previous.preview && !preferences.preview)
+                || (entry.notification.is_some() && !preferences.allows(entry.service))
+            {
+                self.finish(&entry, true);
             }
         }
     }

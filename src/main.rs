@@ -1,5 +1,6 @@
 mod notifications;
 mod policy;
+mod settings;
 mod workspace;
 
 use gtk::{gio, glib, prelude::*};

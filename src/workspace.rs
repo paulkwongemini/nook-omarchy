@@ -1,5 +1,6 @@
 use crate::{
     notifications::Notifications,
+    settings::{self, Preferences},
     policy::{self, Route, SERVICES},
 };
 use gtk::{gdk, gio, glib, prelude::*};
@@ -69,6 +70,7 @@ pub struct Workspace {
     context: webkit2gtk::WebContext,
     anchor: webkit2gtk::WebView,
     notifications: Rc<Notifications>,
+    preferences: RefCell<Preferences>,
     closing: Cell<bool>,
 }
 
@@ -78,6 +80,12 @@ impl Workspace {
         data: &Path,
         cache: &Path,
     ) -> Result<Rc<Self>, Box<dyn std::error::Error>> {
+        let loaded = Preferences::load(&Preferences::path());
+        let settings_failed = loaded.is_err();
+        let preferences = loaded.unwrap_or_else(|_| Preferences {
+            chat: false, gmail: false, preview: false, ..Preferences::default()
+        });
+        preferences.theme.apply();
         let manager = webkit2gtk::WebsiteDataManager::builder()
             .base_data_directory(data.to_string_lossy())
             .base_cache_directory(cache.to_string_lossy())
@@ -181,6 +189,7 @@ impl Workspace {
                 context,
                 anchor,
                 notifications: Notifications::new(
+                    preferences.clone(),
                     move |service| {
                         if let Some(workspace) = activate.upgrade() {
                             workspace.select_service(service);
@@ -193,6 +202,7 @@ impl Workspace {
                         }
                     },
                 ),
+                preferences: RefCell::new(preferences),
                 closing: Cell::new(false),
             }
         });
@@ -209,6 +219,9 @@ impl Workspace {
             });
         }
         workspace.menu(&menu_button);
+        if settings_failed {
+            workspace.failure(0, "Could not read saved settings. Notifications and previews are disabled; open Settings to save new preferences.");
+        }
         let weak = Rc::downgrade(&workspace);
         workspace.window.connect_key_press_event(move |_, event| {
             let handled = weak.upgrade().is_some_and(|workspace| workspace.key(event));
@@ -737,6 +750,21 @@ impl Workspace {
                     workspace.present_service(service);
                 });
             }
+            "Settings" => {
+                let save_workspace = Rc::downgrade(self);
+                let test_workspace = Rc::downgrade(self);
+                settings::show_dialog(&self.window, &self.preferences.borrow(), move |preferences| {
+                    preferences.save(&Preferences::path())?;
+                    preferences.theme.apply();
+                    if let Some(workspace) = save_workspace.upgrade() {
+                        workspace.notifications.set_preferences(preferences.clone());
+                        *workspace.preferences.borrow_mut() = preferences;
+                    }
+                    Ok(())
+                }, move || {
+                    if let Some(workspace) = test_workspace.upgrade() { workspace.notifications.send_test(); }
+                });
+            }
             "Test App Notification" => self.notifications.send_test(),
             "Notification Help" => {
                 let dialog = gtk::MessageDialog::new(Some(&self.window), gtk::DialogFlags::MODAL, gtk::MessageType::Info,
@@ -757,6 +785,7 @@ impl Workspace {
             "Reload",
             "Service Home",
             "",
+            "Settings",
             "Test App Notification",
             "Notification Help",
             "",
@@ -783,6 +812,10 @@ impl Workspace {
         let modifiers = event.state() & gtk::accelerator_get_default_mod_mask();
         let key = event.keyval();
         if modifiers == gdk::ModifierType::CONTROL_MASK {
+            if key.to_unicode() == Some(',') {
+                self.action("Settings");
+                return true;
+            }
             if let Some(c) = key.to_unicode() {
                 if ('1'..='4').contains(&c) {
                     self.select_service((c as u8 - b'1') as usize);
