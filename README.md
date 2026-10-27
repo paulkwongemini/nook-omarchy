@@ -38,7 +38,7 @@ The installer uses `$CARGO_TARGET_DIR/release`, defaulting to `${XDG_CACHE_HOME:
 ```sh
 bash scripts/package.sh
 # Install the .pkg.tar.zst path printed by the script:
-sudo pacman -U /absolute/path/to/nook-omarchy-0.0.1-1-x86_64.pkg.tar.zst
+sudo pacman -U /absolute/path/to/nook-omarchy-0.0.2-1-x86_64.pkg.tar.zst
 ```
 
 Packages are built from the current local source. Output goes to `${XDG_CACHE_HOME:-$HOME/.cache}/nook-omarchy-package`; override it with `NOOK_PACKAGE_DIR`, an absolute path outside the source tree. Use `bash scripts/package.sh --source-only` to prepare the release source archive, PKGBUILD and `.SRCINFO` without compiling. Choose either a local installation or an Arch package to avoid duplicate installations.
@@ -78,7 +78,7 @@ For an Arch package installation, use `sudo pacman -R nook-omarchy`. Both remova
 
 ## Limitations
 
-**0.0.1 is an early preview.** Google sign-in, session restoration, all four services, organization-specific SSO, attachments and incoming Chat notifications still require real-account verification. Synthetic checks do not validate real Google workflows.
+**0.0.2 is an early preview.** Google sign-in, session restoration, all four services, organization-specific SSO, attachments and incoming Chat notifications still require real-account verification. Synthetic checks do not validate real Google workflows.
 
 Paste through Ctrl+V and the native context menu is supported. Website requests to read the clipboard directly are blocked.
 

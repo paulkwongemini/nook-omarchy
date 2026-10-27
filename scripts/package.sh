@@ -32,7 +32,7 @@ case "$out/" in
   "$root/"*) printf 'Package output must be outside the source tree.\n' >&2; exit 1 ;;
 esac
 mkdir -p -- "$out"
-name=nook-omarchy-0.0.1
+name=nook-omarchy-0.0.2
 archive="$out/$name.tar.gz"
 for target in "$archive" "$out/PKGBUILD" "$out/.SRCINFO" "$out/LICENSE"; do
   if [[ -L $target ]]; then
