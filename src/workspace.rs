@@ -1,6 +1,7 @@
 use crate::{
     notifications::Notifications,
     policy::{self, Route, SERVICES},
+    settings::{self, Preferences},
 };
 use gtk::{gdk, gio, glib, prelude::*};
 use std::{
@@ -78,6 +79,15 @@ impl Workspace {
         data: &Path,
         cache: &Path,
     ) -> Result<Rc<Self>, Box<dyn std::error::Error>> {
+        let loaded = Preferences::load(&Preferences::path());
+        let settings_failed = loaded.is_err();
+        let preferences = loaded.unwrap_or_else(|_| Preferences {
+            chat: false,
+            gmail: false,
+            preview: false,
+            ..Preferences::default()
+        });
+        preferences.theme.apply();
         let manager = webkit2gtk::WebsiteDataManager::builder()
             .base_data_directory(data.to_string_lossy())
             .base_cache_directory(cache.to_string_lossy())
@@ -104,6 +114,22 @@ impl Workspace {
             .default_width(1200)
             .default_height(820)
             .build();
+        window.connect_realize(|widget| {
+            let Some(window) = widget.window() else {
+                return;
+            };
+            if window.display().type_().name() != "GdkWaylandDisplay" {
+                return;
+            }
+            // GTK3 chooses SHM or GL at begin_paint. If WebKit first creates the
+            // paint GL context during that paint, NVIDIA EGL enables explicit
+            // sync but GTK still commits SHM without an acquire point. Prepare
+            // the window-owned paint context before the first frame instead.
+            // The returned, separate application context is not needed.
+            if let Err(error) = window.create_gl_context() {
+                eprintln!("Could not prepare Wayland GL rendering: {error}");
+            }
+        });
         window.set_size_request(420, 360);
         if let Some(icon) = svg_icon(include_str!("../assets/nook-omarchy.svg"), None, 64) {
             window.set_icon(Some(&icon));
@@ -181,6 +207,7 @@ impl Workspace {
                 context,
                 anchor,
                 notifications: Notifications::new(
+                    preferences,
                     move |service| {
                         if let Some(workspace) = activate.upgrade() {
                             workspace.select_service(service);
@@ -209,6 +236,9 @@ impl Workspace {
             });
         }
         workspace.menu(&menu_button);
+        if settings_failed {
+            workspace.failure(0, "Could not read saved settings. Notifications and previews are disabled; open Settings to save new preferences.");
+        }
         let weak = Rc::downgrade(&workspace);
         workspace.window.connect_key_press_event(move |_, event| {
             let handled = weak.upgrade().is_some_and(|workspace| workspace.key(event));
@@ -250,14 +280,12 @@ impl Workspace {
         if service >= SERVICES.len() || self.closing.get() {
             return;
         }
-        let existing = self.pages.borrow()[service].clone();
-        match existing {
-            Some(page) => page,
-            None => match self.make_page(service, None) {
+        let existing = self.pages.borrow()[service].is_some();
+        if !existing {
+            match self.make_page(service, None) {
                 Ok(page) => {
                     self.pages.borrow_mut()[service] = Some(page.clone());
                     page.web.load_uri(SERVICES[service].url);
-                    page
                 }
                 Err(_) => {
                     self.failure(
@@ -266,8 +294,8 @@ impl Workspace {
                     );
                     return;
                 }
-            },
-        };
+            }
+        }
         self.selected.set(service);
         self.stack.set_visible_child_name(SERVICES[service].name);
         for (i, button) in self.buttons.iter().enumerate() {
@@ -507,8 +535,6 @@ impl Workspace {
                     workspace.close_popup(&page);
                 }
             });
-        }
-        if page.opener.is_some() {
             let weak = Rc::downgrade(self);
             let p = Rc::downgrade(page);
             page.web.connect_ready_to_show(move |_| {
@@ -737,6 +763,27 @@ impl Workspace {
                     workspace.present_service(service);
                 });
             }
+            "Settings" => {
+                let save_workspace = Rc::downgrade(self);
+                let test_workspace = Rc::downgrade(self);
+                settings::show_dialog(
+                    &self.window,
+                    &self.notifications.preferences(),
+                    move |preferences| {
+                        preferences.save(&Preferences::path())?;
+                        preferences.theme.apply();
+                        if let Some(workspace) = save_workspace.upgrade() {
+                            workspace.notifications.set_preferences(preferences);
+                        }
+                        Ok(())
+                    },
+                    move || {
+                        if let Some(workspace) = test_workspace.upgrade() {
+                            workspace.notifications.send_test();
+                        }
+                    },
+                );
+            }
             "Test App Notification" => self.notifications.send_test(),
             "Notification Help" => {
                 let dialog = gtk::MessageDialog::new(Some(&self.window), gtk::DialogFlags::MODAL, gtk::MessageType::Info,
@@ -757,6 +804,7 @@ impl Workspace {
             "Reload",
             "Service Home",
             "",
+            "Settings",
             "Test App Notification",
             "Notification Help",
             "",
@@ -783,6 +831,10 @@ impl Workspace {
         let modifiers = event.state() & gtk::accelerator_get_default_mod_mask();
         let key = event.keyval();
         if modifiers == gdk::ModifierType::CONTROL_MASK {
+            if key.to_unicode() == Some(',') {
+                self.action("Settings");
+                return true;
+            }
             if let Some(c) = key.to_unicode() {
                 if ('1'..='4').contains(&c) {
                     self.select_service((c as u8 - b'1') as usize);
@@ -880,7 +932,7 @@ impl Workspace {
                 if let Ok(uri) = url::Url::from_file_path(path) {
                     download.set_allow_overwrite(true);
                     download.set_destination(uri.as_str());
-                    workspace.download_progress(download, service);
+                    workspace.download_progress(download);
                 } else {
                     download.cancel();
                 }
@@ -911,7 +963,7 @@ impl Workspace {
         });
     }
 
-    fn download_progress(&self, download: &webkit2gtk::Download, _service: usize) {
+    fn download_progress(&self, download: &webkit2gtk::Download) {
         let dialog = gtk::Dialog::with_buttons(
             Some("Downloading — Nook"),
             Some(&self.window),
@@ -968,15 +1020,9 @@ impl Workspace {
 }
 
 fn update_icon(button: &gtk::ToggleButton, service: usize) {
-    let svg = match SERVICES[service].icon {
-        "chat" => include_str!("../assets/chat.svg"),
-        "gmail" => include_str!("../assets/gmail.svg"),
-        "drive" => include_str!("../assets/drive.svg"),
-        _ => include_str!("../assets/calendar.svg"),
-    };
     let color = button.style_context().color(gtk::StateFlags::NORMAL);
     if let Some(icon) = svg_icon(
-        svg,
+        SERVICES[service].icon,
         Some(&format!(
             "#{:02x}{:02x}{:02x}",
             (color.red() * 255.0) as u8,

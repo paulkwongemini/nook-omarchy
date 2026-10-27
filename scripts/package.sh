@@ -11,7 +11,7 @@ fi
 files=(
   .gitignore Cargo.toml Cargo.lock LICENSE README.md
   assets/nook-omarchy.svg assets/chat.svg assets/gmail.svg assets/drive.svg assets/calendar.svg
-  src/main.rs src/workspace.rs src/policy.rs src/notifications.rs
+  src/main.rs src/workspace.rs src/policy.rs src/notifications.rs src/settings.rs
   scripts/package.sh scripts/install-local.sh scripts/uninstall-local.sh scripts/licenses.py
   packaging/PKGBUILD packaging/nook-omarchy.desktop
 )
@@ -32,7 +32,7 @@ case "$out/" in
   "$root/"*) printf 'Package output must be outside the source tree.\n' >&2; exit 1 ;;
 esac
 mkdir -p -- "$out"
-name=nook-omarchy-0.0.1
+name=nook-omarchy-0.0.2
 archive="$out/$name.tar.gz"
 for target in "$archive" "$out/PKGBUILD" "$out/.SRCINFO" "$out/LICENSE"; do
   if [[ -L $target ]]; then

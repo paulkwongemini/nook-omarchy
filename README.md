@@ -38,7 +38,7 @@ The installer uses `$CARGO_TARGET_DIR/release`, defaulting to `${XDG_CACHE_HOME:
 ```sh
 bash scripts/package.sh
 # Install the .pkg.tar.zst path printed by the script:
-sudo pacman -U /absolute/path/to/nook-omarchy-0.0.1-1-x86_64.pkg.tar.zst
+sudo pacman -U /absolute/path/to/nook-omarchy-0.0.2-1-x86_64.pkg.tar.zst
 ```
 
 Packages are built from the current local source. Output goes to `${XDG_CACHE_HOME:-$HOME/.cache}/nook-omarchy-package`; override it with `NOOK_PACKAGE_DIR`, an absolute path outside the source tree. Use `bash scripts/package.sh --source-only` to prepare the release source archive, PKGBUILD and `.SRCINFO` without compiling. Choose either a local installation or an Arch package to avoid duplicate installations.
@@ -51,9 +51,18 @@ Packages are built from the current local source. Output goes to `${XDG_CACHE_HO
 | Ctrl+R | Reload |
 | Alt+Left | Back |
 | Ctrl+Shift+H | Service home |
+| Ctrl+, | Settings |
 | Ctrl+Q | Quit |
 
 Closing the window exits Nook. There is no tray process or autostart entry.
+
+## Settings
+
+Open **Settings** from the bottom-left menu or press **Ctrl+,**. Choose System, Light or Dark for Nook's sidebar and dialogs; Google websites have their own theme settings. Explicit Light and Dark use GTK's built-in Adwaita theme and do not change your desktop.
+
+Chat and Gmail notifications can be enabled separately. Settings also control notification sound, sender/message previews and **Keep notifications until clicked or dismissed** (enabled by default). Persistent alerts use critical urgency and no expiration so Omarchy keeps them visible. Your desktop controls sound and may apply its own notification policy. Nook must remain running, and websites may withdraw their notifications. The test button uses saved settings and deliberately works even when service alerts are muted.
+
+Save applies changes without reloading your Google session. Preferences are stored in `~/.config/nook-omarchy/settings.ini`, respecting `XDG_CONFIG_HOME`. Turning off a service withdraws its existing alerts; hiding previews also withdraws visible alerts that could contain private text.
 
 ## Data and removal
 
@@ -69,7 +78,7 @@ For an Arch package installation, use `sudo pacman -R nook-omarchy`. Both remova
 
 ## Limitations
 
-**0.0.1 is an early preview.** Google sign-in, session restoration, all four services, organization-specific SSO, attachments and incoming Chat notifications still require real-account verification. Synthetic checks do not validate real Google workflows.
+**0.0.2 is an early preview.** Google sign-in, session restoration, all four services, organization-specific SSO, attachments and incoming Chat notifications still require real-account verification. Synthetic checks do not validate real Google workflows.
 
 Paste through Ctrl+V and the native context menu is supported. Website requests to read the clipboard directly are blocked.
 

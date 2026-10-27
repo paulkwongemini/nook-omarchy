@@ -1,6 +1,6 @@
 # scripts/package.sh resolves the source checksum for the release/AUR recipe.
 pkgname=nook-omarchy
-pkgver=0.0.1
+pkgver=0.0.2
 pkgrel=1
 pkgdesc='A native Google workspace shell for Omarchy'
 arch=('x86_64')
